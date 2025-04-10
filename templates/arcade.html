@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>High Score Leaderboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body, html {
+    height: 100%;
+    font-family: 'Press Start 2P', monospace;
+    background: black;
+    color: #fff;
+  }
+
+  /* 🔮 CRT Scanline Overlay */
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      rgba(0,0,0,0.15) 0px,
+      rgba(0,0,0,0.15) 1px,
+      transparent 2px,
+      transparent 4px
+    );
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  .video-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: -2;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.2);
+    z-index: -1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    padding: 30px;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    color: #ff4ecb;
+    text-shadow: 0 0 5px #ff4ecb, 0 0 10px #00ffff;
+    margin-bottom: 20px;
+  }
+
+  form, .leaderboard {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 25px;
+    border: 4px solid #00ffff;
+    border-radius: 15px;
+    margin: 0 auto 30px;
+    max-width: 400px;
+    box-shadow: 0 0 20px #00ffffaa;
+    backdrop-filter: blur(6px);
+  }
+
+  input, button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    padding: 10px;
+    margin: 10px 0;
+    width: 100%;
+    border: 2px solid #ff4ecb;
+    border-radius: 6px;
+    background-color: #000;
+    color: #00ffcc;
+    box-shadow: inset 0 0 8px #ff4ecb;
+  }
+
+  button {
+    cursor: pointer;
+    background-color: #00ffcc;
+    color: black;
+    text-shadow: 0 0 2px #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 2px solid #000;
+    box-shadow: 0 4px #222;
+  }
+
+  button:hover {
+    background-color: #00ccaa;
+    transform: translateY(-2px);
+    box-shadow: 0 6px #111;
+  }
+
+  .entry {
+    background: rgba(30, 30, 30, 0.4);
+    margin: 6px 0;
+    padding: 10px;
+    border-radius: 6px;
+    animation: popIn 0.4s ease;
+    backdrop-filter: blur(3px);
+    border-left: 3px solid #00ffcc;
+    border-right: 3px solid #ff4ecb;
+  }
+
+  .entry span {
+    float: right;
+    font-weight: bold;
+  }
+
+  .delete-btn {
+    float: right;
+    margin-left: 10px;
+    background: #ff4d4d;
+    color: #fff;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.5rem;
+  }
+
+  @keyframes popIn {
+    0% {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+</style>
+
+</head>
+<body>
+
+  
+
+  <!-- 🎬 VIDEO BACKGROUND -->
+  <video id="background-video" autoplay loop muted playsinline>
+    <source src="{{ url_for('static', filename='bg.mp4') }}" type="video/mp4">
+    Your browser does not support the video element.
+  </video>
+  
+
+  <!-- DARK OVERLAY FOR READABILITY -->
+  <div class="overlay"></div>
+
+  <!-- 🏆 LEADERBOARD CONTENT -->
+  <div class="container">
+    <h1>🏆Leaderboard🏆</h1>
+
+    <form id="scoreForm">
+      <input type="text" id="playerName" placeholder="Your name" required />
+      <input type="number" id="playerScore" placeholder="Your score" required />
+      <button type="submit">Submit Score</button>
+    </form>
+
+    <div class="leaderboard" id="leaderboard">
+      <h2>Top Scores</h2>
+      <div id="scoresList"></div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("scoreForm");
+    const scoresList = document.getElementById("scoresList");
+
+    let scores = JSON.parse(localStorage.getItem("leaderboardScores")) || [];
+
+    function updateLeaderboard() {
+      scores.sort((a, b) => b.score - a.score);
+      scores = scores.slice(0, 10);
+      localStorage.setItem("leaderboardScores", JSON.stringify(scores));
+
+      scoresList.innerHTML = "";
+scores.forEach((entry, index) => {
+  const div = document.createElement("div");
+  div.className = "entry";
+
+  let rankLabel;
+  if (index === 0) {
+    rankLabel = "🥇";
+  } else if (index === 1) {
+    rankLabel = "🥈";
+  } else if (index === 2) {
+    rankLabel = "🥉";
+  } else {
+    rankLabel = `${index + 1}.`;
+  }
+
+    div.innerHTML = `
+    <strong>${rankLabel}</strong> ${entry.name} <span>${entry.score}</span>
+    <button class="delete-btn" onclick="deleteScore(${index})">🗑</button>
+  `;
+  scoresList.appendChild(div);
+});
+
+
+    }
+
+    function deleteScore(index) {
+      scores.splice(index, 1);
+      updateLeaderboard();
+    }
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const name = document.getElementById("playerName").value.trim();
+      const score = parseInt(document.getElementById("playerScore").value);
+
+      if (name && !isNaN(score)) {
+        scores.push({ name, score });
+        updateLeaderboard();
+        form.reset();
+      }
+    });
+
+    updateLeaderboard();
+  </script>
+
+</body>
+</html>
+
